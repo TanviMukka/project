@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Study Plan Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-a: #c9b6e4;
+    --bg-b: #a8d8ea;
+    --panel: #fdfbff;
+    --panel-edge: #7a6ba3;
+    --pink: #f7b8d4;
+    --pink-deep: #e88fb4;
+    --blue: #a9d6ec;
+    --blue-deep: #7ec1de;
+    --ink: #4a3f6b;
+    --ink-soft: #7a6f9c;
+    --shadow: #392f57;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family:'VT323', monospace;
+    background: linear-gradient(135deg, var(--bg-a) 0%, var(--bg-b) 100%);
+    background-attachment: fixed;
+    color: var(--ink);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 24px;
+    image-rendering: pixelated;
+    overflow-x:hidden;
+  }
+
+  /* subtle scanline / dot-grid atmosphere, restrained */
+  body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    background-image: radial-gradient(rgba(255,255,255,0.35) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events:none;
+    opacity:0.5;
+  }
+
+  .pixel-font{ font-family:'Press Start 2P', monospace; }
+
+  /* ---- retro window chrome ---- */
+  .window{
+    position:relative;
+    width:100%;
+    max-width:560px;
+    background: var(--panel);
+    border: 4px solid var(--ink);
+    box-shadow:
+      6px 6px 0 var(--shadow),
+      0 0 0 4px var(--panel);
+    image-rendering: pixelated;
+    animation: pop-in .25s steps(6) both;
+  }
+
+  @keyframes pop-in{
+    from{ transform: scale(0.9); opacity:0; }
+    to{ transform: scale(1); opacity:1; }
+  }
+
+  .titlebar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:10px 12px;
+    background: linear-gradient(90deg, var(--pink) 0%, var(--blue) 100%);
+    border-bottom:4px solid var(--ink);
+  }
+
+  .titlebar-label{
+    font-family:'Press Start 2P', monospace;
+    font-size:10px;
+    color: var(--ink);
+    letter-spacing:1px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .titlebar-dots{ display:flex; gap:6px; }
+  .dot{
+    width:12px; height:12px;
+    border:2px solid var(--ink);
+    background: var(--panel);
+  }
+  .dot.pink{ background: var(--pink-deep); }
+  .dot.blue{ background: var(--blue-deep); }
+  .dot.purple{ background: #cbb8ec; }
+
+  .window-body{
+    padding: 32px 28px 28px;
+  }
+
+  /* ---- screens ---- */
+  .screen{ display:none; }
+  .screen.active{ display:block; }
+
+  /* ---- landing ---- */
+  .landing{ text-align:center; }
+  .landing h1{
+    font-family:'Press Start 2P', monospace;
+    font-size: 20px;
+    line-height:1.6;
+    margin: 6px 0 18px;
+    color: var(--ink);
+    text-shadow: 3px 3px 0 var(--pink);
+  }
+  .landing p{
+    font-size:20px;
+    color: var(--ink-soft);
+    margin-bottom:28px;
+  }
+
+  .blink{
+    animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink{ 50%{ opacity:0; } }
+
+  /* ---- pixel button ---- */
+  .pixel-btn{
+    font-family:'Press Start 2P', monospace;
+    font-size:12px;
+    padding: 14px 22px;
+    background: var(--pink);
+    color: var(--ink);
+    border: 3px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--shadow);
+    cursor:pointer;
+    letter-spacing:1px;
+    transition: transform .05s;
+  }
+  .pixel-btn:hover{ background: var(--pink-deep); }
+  .pixel-btn:active{
+    transform: translate(4px,4px);
+    box-shadow: 0 0 0 var(--shadow);
+  }
+  .pixel-btn.blue{ background: var(--blue); }
+  .pixel-btn.blue:hover{ background: var(--blue-deep); }
+  .pixel-btn.wide{ width:100%; }
+  .pixel-btn.small{ font-size:10px; padding:10px 14px; }
+
+  /* ---- form ---- */
+  .field{ margin-bottom: 22px; }
+  .field label{
+    display:block;
+    font-family:'Press Start 2P', monospace;
+    font-size:11px;
+    margin-bottom:8px;
+    color: var(--ink);
+  }
+  .field input, .field select{
+    width:100%;
+    font-family:'VT323', monospace;
+    font-size:20px;
+    padding:10px 12px;
+    border:3px solid var(--ink);
+    background:#fff;
+    color: var(--ink);
+    outline:none;
+  }
+  .field input:focus, .field select:focus{
+    background: #f4eefc;
+    box-shadow: 3px 3px 0 var(--pink-deep);
+  }
+
+  .form-actions{ margin-top:8px; }
+
+  /* ---- loading ---- */
+  .loading{ text-align:center; padding: 10px 0 4px; }
+  .spinner{
+    display:grid;
+    grid-template-columns: repeat(3, 16px);
+    grid-template-rows: repeat(3, 16px);
+    gap:6px;
+    justify-content:center;
+    margin: 10px auto 26px;
+  }
+  .spinner span{
+    width:16px; height:16px;
+    background: var(--ink-soft);
+    border: 2px solid var(--ink);
+  }
+  .spinner span:nth-child(1){ animation: pulse 1.2s infinite .0s; }
+  .spinner span:nth-child(2){ animation: pulse 1.2s infinite .1s; }
+  .spinner span:nth-child(3){ animation: pulse 1.2s infinite .2s; }
+  .spinner span:nth-child(4){ animation: pulse 1.2s infinite .1s; }
+  .spinner span:nth-child(5){ animation: pulse 1.2s infinite .2s; background:var(--pink-deep); }
+  .spinner span:nth-child(6){ animation: pulse 1.2s infinite .3s; }
+  .spinner span:nth-child(7){ animation: pulse 1.2s infinite .2s; }
+  .spinner span:nth-child(8){ animation: pulse 1.2s infinite .3s; }
+  .spinner span:nth-child(9){ animation: pulse 1.2s infinite .4s; }
+
+  @keyframes pulse{
+    0%, 100%{ background: var(--ink-soft); }
+    50%{ background: var(--blue-deep); }
+  }
+
+  .loading-msg{
+    font-size:22px;
+    color: var(--ink);
+    min-height: 30px;
+  }
+
+  /* ---- output ---- */
+  .output-box{
+    max-height: 46vh;
+    overflow-y:auto;
+    border: 3px solid var(--ink);
+    background: #fff;
+    padding: 18px;
+    font-size:19px;
+    line-height:1.5;
+  }
+  .output-box::-webkit-scrollbar{ width:12px; }
+  .output-box::-webkit-scrollbar-track{ background: #eee2f8; }
+  .output-box::-webkit-scrollbar-thumb{ background: var(--pink-deep); border:2px solid var(--ink); }
+
+  .output-box h3{
+    font-family:'Press Start 2P', monospace;
+    font-size:12px;
+    color: var(--ink);
+    margin: 18px 0 8px;
+    border-bottom: 2px dashed var(--ink-soft);
+    padding-bottom:6px;
+  }
+  .output-box h3:first-child{ margin-top:0; }
+  .output-box ul{ margin:0 0 6px; padding-left: 22px; }
+
+  .output-actions{
+    display:flex;
+    gap:12px;
+    margin-top:18px;
+  }
+  .output-actions .pixel-btn{ flex:1; }
+
+  @media (max-width: 480px){
+    .landing h1{ font-size:16px; }
+    .titlebar-label{ font-size:9px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="window">
+  <div class="titlebar">
+    <span class="titlebar-label" id="titlebarLabel">STUDY_PLANNER.EXE</span>
+    <div class="titlebar-dots">
+      <span class="dot pink"></span>
+      <span class="dot blue"></span>
+      <span class="dot purple"></span>
+    </div>
+  </div>
+
+  <div class="window-body">
+
+    <!-- SCREEN 1: LANDING -->
+    <div class="screen active" id="screen-landing">
+      <div class="landing">
+        <h1>STUDY PLAN<br>GENERATOR</h1>
+        <p>press start to build your plan</p>
+        <button class="pixel-btn" onclick="blip(); goTo('input');">&#9654; START <span class="blink">_</span></button>
+      </div>
+    </div>
+
+    <!-- SCREEN 2: INPUT -->
+    <div class="screen" id="screen-input">
+      <div class="field">
+        <label for="subject">SUBJECT:</label>
+        <input type="text" id="subject" placeholder="e.g. precalculus">
+      </div>
+      <div class="field">
+        <label for="topic">TOPIC:</label>
+        <input type="text" id="topic" placeholder="e.g. function transformation">
+      </div>
+      <div class="field">
+        <label for="days">DAYS UNTIL EXAM:</label>
+        <input type="number" id="days" placeholder="e.g. 3" min="1" max="60">
+      </div>
+      <div class="field">
+        <label for="hours">HOURS PER DAY:</label>
+        <input type="number" id="hours" placeholder="e.g. 1" min="1" max="12">
+      </div>
+      <div class="field">
+        <label for="difficulty">DIFFICULTY:</label>
+        <select id="difficulty">
+          <option value="easy">easy</option>
+          <option value="medium">medium</option>
+          <option value="hard">hard</option>
+        </select>
+      </div>
+      <div class="form-actions">
+        <button class="pixel-btn wide blue" onclick="blip(); startGenerate();">GENERATE &#9654;</button>
+      </div>
+    </div>
+
+    <!-- SCREEN 3: LOADING -->
+    <div class="screen" id="screen-loading">
+      <div class="loading">
+        <div class="spinner">
+          <span></span><span></span><span></span>
+          <span></span><span></span><span></span>
+          <span></span><span></span><span></span>
+        </div>
+        <div class="loading-msg" id="loadingMsg">generating your study plan...</div>
+      </div>
+    </div>
+
+    <!-- SCREEN 4: OUTPUT -->
+    <div class="screen" id="screen-output">
+      <div class="output-box" id="outputBox"></div>
+      <div class="output-actions">
+        <button class="pixel-btn small" onclick="blip(); goTo('input');">&#8592; NEW PLAN</button>
+        <button class="pixel-btn small blue" onclick="blip(); alert('Hook this up to a real save/export action later.');">SAVE</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const titles = {
+    landing: 'STUDY_PLANNER.EXE',
+    input: 'NEW_PLAN.EXE',
+    loading: 'LOADING...',
+    output: 'YOUR_PLAN.txt'
+  };
+
+  function goTo(name){
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + name).classList.add('active');
+    document.getElementById('titlebarLabel').textContent = titles[name];
+  }
+
+  // simple synthesized retro blip -- no external audio files
+  function blip(){
+    try{
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = 520;
+      gain.gain.setValueAtTime(0.05, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.12);
+    }catch(e){ /* audio not available, fail silently */ }
+  }
+
+  const funMessages = [
+    "generating your study plan...",
+    "sharpening pixel pencils...",
+    "consulting the syllabus...",
+    "brewing focus juice...",
+    "almost there..."
+  ];
+
+  let msgInterval;
+
+  function startGenerate(){
+  goTo('loading');
+  let i = 0;
+  document.getElementById('loadingMsg').textContent = funMessages[0];
+  msgInterval = setInterval(() => {
+    i = (i + 1) % funMessages.length;
+    document.getElementById('loadingMsg').textContent = funMessages[i];
+  }, 1100);
+
+  const payload = {
+    subject: document.getElementById('subject').value,
+    topic: document.getElementById('topic').value,
+    days: document.getElementById('days').value,
+    hours: document.getElementById('hours').value,
+    difficulty: document.getElementById('difficulty').value
+  };
+
+  fetch('/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(() => {
+    clearInterval(msgInterval);
+    renderOutput(buildDummyPlan()); // still fake output for now — that's Weekend 2
+  });
+}
+
+  function buildDummyPlan(){
+    const subject = document.getElementById('subject').value || 'Your Subject';
+    const topic = document.getElementById('topic').value || 'Your Topic';
+    const days = parseInt(document.getElementById('days').value) || 5;
+    const hours = document.getElementById('hours').value || '2';
+    const difficulty = document.getElementById('difficulty').value;
+
+    let html = `<h3>PLAN: ${escapeHtml(topic)} (${escapeHtml(subject)})</h3>
+      <p>${hours} hrs/day &middot; ${difficulty} difficulty &middot; ${days} day plan</p>`;
+
+    for(let d = 1; d <= Math.min(days, 6); d++){
+      html += `<h3>DAY ${d}</h3><ul>
+        <li>Review core concepts (~${Math.round(hours*0.35*10)/10} hrs)</li>
+        <li>Practice ${difficulty}-level problems (~${Math.round(hours*0.4*10)/10} hrs)</li>
+        <li>Quick self-check quiz (~${Math.round(hours*0.25*10)/10} hrs)</li>
+      </ul>`;
+    }
+    return html;
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function renderOutput(html){
+    document.getElementById('outputBox').innerHTML = html;
+    goTo('output');
+  }
+</script>
+</body>
+</html>
