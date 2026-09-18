@@ -11,13 +11,22 @@ def home():
 def submit():
     data = request.get_json()
 
-    plan_text = generate_plan(
-        subject = data['subject'],
-        topic = data['topic'],
-        days = int(data['days']),
-        hours = int(data['hours']),
-        difficulty = data['difficulty']
-    )
+    required_fields = ['subject', 'topic', 'days', 'hours', 'difficulty']
+    if not data or not all(data.get(f) for f in required_fields):
+        return jsonify({"error": "Please fill in all fields."}), 400
+
+    try:
+        plan_text = generate_plan(
+            subject = data['subject'],
+            topic = data['topic'],
+            days = int(data['days']),
+            hours = int(data['hours']),
+            difficulty = data['difficulty']
+        )
+    except ValueError:
+        return jsonify({"error": "Days and hours must be valid numbers."}), 400
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate plan: {e}"}), 500
 
     return jsonify({"plan": plan_text})
 

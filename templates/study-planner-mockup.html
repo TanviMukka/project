@@ -322,7 +322,7 @@
       <div class="output-box" id="outputBox"></div>
       <div class="output-actions">
         <button class="pixel-btn small" onclick="blip(); goTo('input');">&#8592; NEW PLAN</button>
-        <button class="pixel-btn small blue" onclick="blip(); alert('Hook this up to a real save/export action later.');">SAVE</button>
+        <button class="pixel-btn small blue" onclick="blip(); savePlan();">SAVE</button>
       </div>
     </div>
 
@@ -368,8 +368,22 @@
   ];
 
   let msgInterval;
+  let lastPlanText = '';
 
   function startGenerate(){
+  const payload = {
+    subject: document.getElementById('subject').value.trim(),
+    topic: document.getElementById('topic').value.trim(),
+    days: document.getElementById('days').value,
+    hours: document.getElementById('hours').value,
+    difficulty: document.getElementById('difficulty').value
+  };
+
+  if (!payload.subject || !payload.topic || !payload.days || !payload.hours) {
+    alert('Please fill in all fields before generating.');
+    return;
+  }
+
   goTo('loading');
   let i = 0;
   document.getElementById('loadingMsg').textContent = funMessages[0];
@@ -378,22 +392,24 @@
     document.getElementById('loadingMsg').textContent = funMessages[i];
   }, 1100);
 
-  const payload = {
-    subject: document.getElementById('subject').value,
-    topic: document.getElementById('topic').value,
-    days: document.getElementById('days').value,
-    hours: document.getElementById('hours').value,
-    difficulty: document.getElementById('difficulty').value
-  };
-
   fetch('/submit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   })
-  .then(() => {
+  .then(res => res.json().then(body => ({ status: res.status, body })))
+  .then(({ status, body }) => {
     clearInterval(msgInterval);
-    renderOutput(buildDummyPlan()); // still fake output for now — that's Weekend 2
+    if (status !== 200) {
+      renderOutput(`<p>Error: ${escapeHtml(body.error || 'Something went wrong generating your plan.')}</p>`);
+    } else {
+      lastPlanText = body.plan;
+      renderOutput(formatPlanText(body.plan));
+    }
+  })
+  .catch(err => {
+    clearInterval(msgInterval);
+    renderOutput(`<p>Network error: ${escapeHtml(err.message)}</p>`);
   });
 }
 
@@ -423,9 +439,59 @@
     return div.innerHTML;
   }
 
+  // Converts the plain-text/markdown Gemini returns (###, **bold**, * bullets)
+  // into real HTML. Escapes first so nothing unsafe slips through.
+  function formatPlanText(text){
+    const escaped = escapeHtml(text);
+    const lines = escaped.split('\n');
+    let html = '';
+    let inList = false;
+
+    for (const rawLine of lines){
+      const line = rawLine.trim();
+      if (line.startsWith('### ')){
+        if (inList) { html += '</ul>'; inList = false; }
+        html += `<h3>${line.slice(4)}</h3>`;
+      } else if (line.startsWith('* ') || line.startsWith('- ')){
+        if (!inList) { html += '<ul>'; inList = true; }
+        html += `<li>${line.slice(2)}</li>`;
+      } else if (line === ''){
+        if (inList) { html += '</ul>'; inList = false; }
+      } else {
+        if (inList) { html += '</ul>'; inList = false; }
+        html += `<p>${line}</p>`;
+      }
+    }
+    if (inList) html += '</ul>';
+
+    // bold: **text** -> <strong>text</strong>
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    return html;
+  }
+
   function renderOutput(html){
     document.getElementById('outputBox').innerHTML = html;
     goTo('output');
+  }
+
+  function savePlan(){
+    if (!lastPlanText) {
+      alert('No plan to save yet.');
+      return;
+    }
+    const subject = document.getElementById('subject').value || 'study';
+    const topic = document.getElementById('topic').value || 'plan';
+    const filename = `${subject}-${topic}-study-plan.txt`.replace(/\s+/g, '_').toLowerCase();
+
+    const blob = new Blob([lastPlanText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 </script>
 </body>
