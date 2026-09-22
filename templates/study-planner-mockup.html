@@ -397,7 +397,15 @@
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   })
-  .then(res => res.json().then(body => ({ status: res.status, body })))
+  .then(res => res.text().then(text => {
+    let body;
+    try {
+      body = JSON.parse(text);
+    } catch (e) {
+      throw new Error('Server took too long to respond (likely still waking up or the request timed out). Please try again.');
+    }
+    return { status: res.status, body };
+  }))
   .then(({ status, body }) => {
     clearInterval(msgInterval);
     if (status !== 200) {
@@ -409,7 +417,7 @@
   })
   .catch(err => {
     clearInterval(msgInterval);
-    renderOutput(`<p>Network error: ${escapeHtml(err.message)}</p>`);
+    renderOutput(`<p>${escapeHtml(err.message)}</p>`);
   });
 }
 
