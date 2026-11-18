@@ -34,7 +34,7 @@ client = genai.Client()
 def generate_plan(subject, topic, days, hours, difficulty):
     user_input = f"I have a test on {topic}, which is a part of {subject}, in {days} days from today. I can study for {hours} hours every day. This is a {difficulty} subject for me. Design a study plan for me detailing what to study and what to do for how long each day. Format the plan as a day-by-day list with specific topics and time blocks."
     interaction = client.interactions.create(
-        model="gemini-3.6-flash",
+        model="gemini-3.5-flash-lite",
         input=user_input
     )
     return interaction.output_text
